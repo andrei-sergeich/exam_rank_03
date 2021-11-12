@@ -1,6 +1,7 @@
-#include <stdio.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 typedef struct s_zone
 {
@@ -14,8 +15,7 @@ typedef struct s_list
 	char	type;
 	float	x;
 	float	y;
-	float	width;
-	float	height;
+	float	radius;
 	char	color;
 }	t_list;
 
@@ -31,12 +31,6 @@ int	ft_strlen(char *str)
 	return (len);
 }
 
-int	err_msg(char *str)
-{
-	write(1, str, ft_strlen(str));
-	return (1);
-}
-
 int	liberator(FILE *file, char *str)
 {
 	fclose(file);
@@ -45,21 +39,25 @@ int	liberator(FILE *file, char *str)
 	return (1);
 }
 
-char	*get_zone(FILE *file, t_zone *zone)
+int	err_msg(char *str)
+{
+	write(1, str, ft_strlen(str));
+	return (1);
+}
+
+char	*fill_zone(FILE *file, t_zone *zone)
 {
 	char	*array;
 	int		count;
 	int		it;
 
-	it = 0;
 	if ((count = fscanf(file, "%d %d %c\n", &zone->width, &zone->height, &zone->background)) != 3)
-		return (NULL);
-	if (count == -1)
 		return (NULL);
 	if (zone->width <= 0 || zone->width > 300 || zone->height <= 0 || zone->height > 300)
 		return (NULL);
 	if (!(array = (char *)malloc(sizeof(char) * (zone->width * zone->height))))
 		return (NULL);
+	it = 0;
 	while (it < zone->width * zone->height)
 	{
 		array[it] = zone->background;
@@ -68,59 +66,58 @@ char	*get_zone(FILE *file, t_zone *zone)
 	return (array);
 }
 
-int	is_rec(float y, float x, t_list *tmp)
+int	is_in_rad(t_list *list, float x, float y)
 {
-	float	check = 1.00000000;
+	float	dist;
 
-	if ((x < tmp->x) || (y < tmp->y) || (x > (tmp->x + tmp->width)) || (y > (tmp->y + tmp->height)))
-		return (0);
-	if ((x - tmp->x < check) || (y - tmp->y < check) || \
-			(((tmp->x + tmp->width) - x) < check) || (((tmp->y + tmp->height) - y) < check))
-		return (2);
-	return (1);
+	dist = sqrtf(((x - list->x) * (x - list->x)) + ((y - list->y) * (y - list->y)));
+	if (dist <= list->radius)
+	{
+		if ((list->radius - dist) < 1.00000000)
+			return (2);
+		return (1);
+	}
+	return (0);
 }
 
-void	get_fill(t_list *tmp, t_zone *zone, char *array)
+void	get_fill(t_list *list, t_zone *zone, char *array)
 {
-	int	x, y, rec;
+	int	x, y, rad;
 
 	y = 0;
-	// printf("111\n");
-	// printf("%c", tmp->color);
 	while (y < zone->height)
 	{
 		x = 0;
 		while (x < zone->width)
 		{
-			rec = is_rec(y, x, tmp);
-			if ((tmp->type == 'r' && rec == 2) || (tmp->type == 'R' && rec))
-				array[(y * zone->width) + x] = tmp->color;
+			rad = is_in_rad(list, x, y);
+			if ((rad == 2 && list->type == 'c') || (rad && list->type == 'C'))
+				array[(y * zone->width) + x] = list->color;
 			x++;
 		}
 		y++;
 	}
 }
 
-int	filling(FILE *file, char *array, t_zone *zone)
+int	printing_prepare(FILE *file, t_zone *zone, char *array)
 {
+	t_list	list;
 	int		count;
-	t_list	tmp;
+	int	it;
 
-	while ((count = fscanf(file, "%c %f %f %f %f %c\n", &tmp.type, &tmp.x, &tmp.y,
-							&tmp.width, &tmp.height, &tmp.color)) == 6)
+	while ((count = fscanf(file, "%c %f %f %f %c\n", &list.type, &list.x, \
+				&list.y, &list.radius, &list.color)) == 5)
 	{
-		if (tmp.height <= 0.00000000 || tmp.width <= 0.00000000)
+		if (list.radius <= 0.00000000 && (list.color != 'c' || list.color != 'C'))
 			return (0);
-		if (tmp.type != 'r' && tmp.type !='R')
-			return (0);
-		get_fill(&tmp, zone, array);
+		get_fill(&list, zone, array);
 	}
 	if (count != -1)
 		return (0);
 	return (1);
 }
 
-void	painting(char *array, t_zone *zone)
+void	printing(t_zone *zone, char *array)
 {
 	int	it = 0;
 
@@ -130,23 +127,24 @@ void	painting(char *array, t_zone *zone)
 		write(1, "\n", 1);
 		it++;
 	}
+
 }
 
 int	main(int argc, char **argv)
 {
 	FILE	*file;
-	t_zone	zone;
 	char	*array;
+	t_zone	zone;
 
 	if (argc != 2)
 		return (err_msg("Error: argument\n"));
 	if (!(file = fopen(argv[1], "r")))
 		return (err_msg("Error: operation file corrupted\n"));
-	if (!(array = get_zone(file, &zone)))
+	if (!(array = fill_zone(file, &zone)))
 		return (liberator(file, NULL) && err_msg("Error: operation file corrupted\n"));
-	if (!(filling(file, array, &zone)))
+	if (!printing_prepare(file, &zone, array))
 		return (liberator(file, array) && err_msg("Error: operation file corrupted\n"));
-	painting(array, &zone);
+	printing(&zone, array);
 	liberator(file, array);
 	return (0);
 }
