@@ -103,12 +103,13 @@ int	printing_prepare(FILE *file, t_zone *zone, char *array)
 {
 	t_list	list;
 	int		count;
-	int	it;
 
 	while ((count = fscanf(file, "%c %f %f %f %c\n", &list.type, &list.x, \
 				&list.y, &list.radius, &list.color)) == 5)
 	{
-		if (list.radius <= 0.00000000 && (list.color != 'c' || list.color != 'C'))
+		if (list.radius < 0.00000000)
+			return (0);
+		if (list.type != 'c' && list.type != 'C')
 			return (0);
 		get_fill(&list, zone, array);
 	}

@@ -85,8 +85,6 @@ void	get_fill(t_list *tmp, t_zone *zone, char *array)
 	int	x, y, rec;
 
 	y = 0;
-	// printf("111\n");
-	// printf("%c", tmp->color);
 	while (y < zone->height)
 	{
 		x = 0;
